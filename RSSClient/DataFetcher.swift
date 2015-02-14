@@ -51,7 +51,7 @@ class DataFetcher {
             if let err = error {
                 completionHandler(nil, err)
             } else if let d = data {
-                if let str = NSString(data: d, encoding: NSUTF8StringEncoding) {
+                if let str = NSString(data: d, encoding: NSUTF8StringEncoding) as? String {
                     completionHandler(str, nil)
                 } else {
                     completionHandler(nil, self.conversionStringError)

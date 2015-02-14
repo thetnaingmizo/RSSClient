@@ -22,7 +22,7 @@ class NotificationHandler {
         category.setActions([markReadAction], forContext: .Minimal)
         category.setActions([markReadAction], forContext: .Default)
         
-        application.registerUserNotificationSettings(UIUserNotificationSettings(forTypes: .Badge | .Alert | .Sound, categories: NSSet(object: category)))
+        application.registerUserNotificationSettings(UIUserNotificationSettings(forTypes: .Badge | .Alert | .Sound, categories: Set(arrayLiteral: [category])))
     }
     
     func handleLocalNotification(notification: UILocalNotification, window: UIWindow, dataManager: DataManager) {
@@ -45,7 +45,7 @@ class NotificationHandler {
     
     func sendLocalNotification(application: UIApplication, article: ArticleObject) {
         let note = UILocalNotification()
-        note.alertBody = NSString.localizedStringWithFormat("New article in %@: %@", article.feed?.feedTitle ?? "", article.title)
+        note.alertBody = String.localizedStringWithFormat("New article in %@: %@", article.feed?.feedTitle ?? "", article.title)
 
         let feedID = article.feed!.objectID.URIRepresentation().absoluteString!
         let articleID = article.objectID.URIRepresentation().absoluteString!
@@ -54,16 +54,16 @@ class NotificationHandler {
         note.userInfo = dict
         note.fireDate = NSDate()
         note.category = "default"
-        let existingNotes = application.scheduledLocalNotifications as [UILocalNotification]
+        let existingNotes = application.scheduledLocalNotifications as! [UILocalNotification]
 
         application.scheduledLocalNotifications = existingNotes + [note]
 //        application.presentLocalNotificationNow(note)
     }
     
     private func feedAndArticleFromUserInfo(userInfo: [NSObject : AnyObject], dataManager: DataManager) -> (FeedObject, ArticleObject) {
-        let feedID = (userInfo["feed"] as String)
+        let feedID = userInfo["feed"] as! String
         let feed : Feed = dataManager.feeds().filter{ return $0.objectID.URIRepresentation().absoluteString == feedID; }.first!
-        let articleID = (userInfo["article"] as String)
+        let articleID = userInfo["article"] as! String
         let article : Article = feed.allArticles(dataManager).filter({ return $0.objectID.URIRepresentation().absoluteString == articleID }).first!
         return (FeedObject(feed: feed), ArticleObject(article: article))
     }

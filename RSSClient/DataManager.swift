@@ -20,7 +20,7 @@ class DataManager: NSObject {
     }
     
     func importOPML(opml: NSURL, progress: (Double) -> Void, completion: ([Feed]) -> Void) {
-        if let text = NSString(contentsOfURL: opml, encoding: NSUTF8StringEncoding, error: nil) {
+        if let text = String(contentsOfURL: opml, encoding: NSUTF8StringEncoding, error: nil) {
             let opmlParser = OPMLParser(text: text)
             opmlParser.failure {(error) in
                 completion([])
@@ -96,7 +96,7 @@ class DataManager: NSObject {
                 ret += "        <outline xmlURL=\"\(sanitize(feed.url))\" title=\"\(sanitize(feed.title))\" type=\"rss\""
             }
             if feed.tags != nil {
-                let tags : String = ",".join(feed.tags as [String])
+                let tags : String = ",".join(feed.tags as! [String])
                 ret += " tags=\"\(tags)\""
             }
             ret += "/>\n"
@@ -189,7 +189,7 @@ class DataManager: NSObject {
         let queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW, 0)
         dispatch_async(queue) {
             let ctx = self.managedObjectContext
-            let theFeeds = self.dataHelper.entities("Feed", matchingPredicate: NSPredicate(format: "self in %@", feedIds)!, managedObjectContext: ctx) as [Feed]
+            let theFeeds = self.dataHelper.entities("Feed", matchingPredicate: NSPredicate(format: "self in %@", feedIds), managedObjectContext: ctx) as! [Feed]
             var feedsLeft = theFeeds.count
             for feed in theFeeds {
                 let feedParser = FeedParser(URL: NSURL(string: feed.url)!)
@@ -210,7 +210,7 @@ class DataManager: NSObject {
                     }
                     if (feedParser != nil && error == nil) {
                         // set the wait period to zero.
-                        if feed.waitPeriod == nil || feed.waitPeriod.integerValue != 0 {
+                        if feed.waitPeriod == nil || feed.waitPeriod?.integerValue != 0 {
                             feed.waitPeriod = NSNumber(integer: 0)
                             feed.remainingWait = NSNumber(integer: 0)
                             feed.managedObjectContext?.save(nil)
@@ -218,7 +218,7 @@ class DataManager: NSObject {
                     } else if let err = error {
                         if (err.domain == NSURLErrorDomain && err.code > 0) { // FIXME: check the error code for specific HTTP error codes.
                             feed.waitPeriod = NSNumber(integer: (feed.waitPeriod?.integerValue ?? 0) + 1)
-                            feed.remainingWait = feed.waitPeriodInRefreshes(feed.waitPeriod.integerValue)
+                            feed.remainingWait = feed.waitPeriodInRefreshes(feed.waitPeriod?.integerValue ?? 0)
                             println("Setting feed at \(feed.url) to have remainingWait of \(feed.remainingWait) refreshes")
                             feed.managedObjectContext?.save(nil)
                         }
@@ -246,8 +246,8 @@ class DataManager: NSObject {
                             
                             for item in items {
                                 let article = self.upsertArticle(item, context: ctx)
-                                if let enclosures = item.enclosures {
-                                    self.upsertEnclosures(enclosures as [[String: AnyObject]], article: article)
+                                if let enclosures = item.enclosures as? [[String: AnyObject]] {
+                                    self.upsertEnclosures(enclosures, article: article)
                                 }
                                 ctx.save(nil)
                             }
@@ -281,7 +281,7 @@ class DataManager: NSObject {
     // MARK: Enclosures
     
     func allEnclosures() -> [Enclosure] {
-        return (dataHelper.entities("Enclosure", matchingPredicate: NSPredicate(value: true), managedObjectContext: managedObjectContext)! as [Enclosure]).sorted {(a : Enclosure, b: Enclosure) in
+        return (dataHelper.entities("Enclosure", matchingPredicate: NSPredicate(value: true), managedObjectContext: managedObjectContext)! as! [Enclosure]).sorted {(a : Enclosure, b: Enclosure) in
             if let da = a.url {
                 if let db = b.url {
                     return da.lastPathComponent < db.lastPathComponent
@@ -292,7 +292,7 @@ class DataManager: NSObject {
     }
     
     func allEnlosures(downloaded: Bool) -> [Enclosure] {
-        return (dataHelper.entities("Enclosure", matchingPredicate: NSPredicate(format: "downloaded = %d", downloaded)!, managedObjectContext: managedObjectContext)! as [Enclosure]).sorted {(a : Enclosure, b: Enclosure) in
+        return (dataHelper.entities("Enclosure", matchingPredicate: NSPredicate(format: "downloaded = %d", downloaded), managedObjectContext: managedObjectContext)! as! [Enclosure]).sorted {(a : Enclosure, b: Enclosure) in
             if let da = a.url {
                 if let db = b.url {
                     return da.lastPathComponent < db.lastPathComponent
@@ -303,7 +303,7 @@ class DataManager: NSObject {
     }
     
     func deleteEnclosure(enclosure: Enclosure) {
-        enclosure.article.removeEnclosuresObject(enclosure)
+        enclosure.article?.removeEnclosuresObject(enclosure)
         enclosure.article = nil
         self.managedObjectContext.deleteObject(enclosure)
     }
@@ -311,7 +311,7 @@ class DataManager: NSObject {
     func upsertEnclosures(list: [[String: AnyObject]], article: Article) -> [Enclosure] {
         if let context = article.managedObjectContext {
             return list.map {(item) in
-                let enclosure = self.dataHelper.upsertEntity("Enclosure", withProperties: ["url": item["url"]!, "kind": item["type"]!], managedObjectContext: context) as Enclosure
+                let enclosure = self.dataHelper.upsertEntity("Enclosure", withProperties: ["url": item["url"]!, "kind": item["type"]!], managedObjectContext: context) as! Enclosure
                 enclosure.article = article
                 article.addEnclosuresObject(enclosure)
                 return enclosure
@@ -341,9 +341,9 @@ class DataManager: NSObject {
     }
     
     func downloadEnclosure(enclosure: Enclosure, progress: (Double) -> (Void) = {(_) in }, completion: (Enclosure, NSError?) -> (Void) = {(_) in }) {
-        let downloaded = (enclosure.downloaded == nil ? false : enclosure.downloaded.boolValue)
-        if (!downloaded) {
-            dataFetcher.fetchItemAtURL(enclosure.url) {(data, error) in
+        let downloaded = (enclosure.downloaded == nil ? false : enclosure.downloaded!.boolValue)
+        if (!downloaded && enclosure.url != nil) {
+            dataFetcher.fetchItemAtURL(enclosure.url!) {(data, error) in
                 if let err = error {
                     completion(enclosure, err)
                 } else {
@@ -352,11 +352,11 @@ class DataManager: NSObject {
                 }
                 self.enclosureProgress.removeValueForKey(enclosure.objectID)
             }
-            dataFetcher.fetchItemAtURL(enclosure.url) {(data, error) in
+            dataFetcher.fetchItemAtURL(enclosure.url!) {(response, error) in
                 if let err = error {
                     completion(enclosure, err)
-                } else if let d = data {
-                    enclosure.data = d
+                } else {
+                    enclosure.data = response
                     completion(enclosure, nil)
                 }
                 self.enclosureProgress.removeValueForKey(enclosure.objectID)
@@ -388,11 +388,11 @@ class DataManager: NSObject {
     }
     
     func upsertArticle(item: MWFeedItem, context: NSManagedObjectContext) -> Article {
-        let properties = ["link": item.link] as [String: AnyObject]
+        let properties : [String: AnyObject] = ["link": item.link]
         
-        let createProperties = ["published": item.date ?? NSDate(), "read": false] as [String:AnyObject]
+        let createProperties : [String: AnyObject] = ["published": item.date ?? NSDate(), "read": false]
         
-        let article = self.dataHelper.upsertEntity("Article", withProperties: properties, managedObjectContext: context, createProperties: createProperties) as Article
+        let article = self.dataHelper.upsertEntity("Article", withProperties: properties, managedObjectContext: context, createProperties: createProperties) as! Article
         
         article.title = item.title ?? ""
         article.link = item.link
@@ -408,7 +408,7 @@ class DataManager: NSObject {
     private var theArticles : [Article]? = nil
     
     private func refreshArticles() {
-        theArticles = (dataHelper.entities("Article", matchingPredicate: NSPredicate(value: true), managedObjectContext: managedObjectContext) as [Article]).sorted {(a : Article, b: Article) in
+        theArticles = (dataHelper.entities("Article", matchingPredicate: NSPredicate(value: true), managedObjectContext: managedObjectContext) as! [Article]).sorted {(a : Article, b: Article) in
             if let da = a.updatedAt ?? a.published {
                 if let db = b.updatedAt ?? b.published {
                     return da.timeIntervalSince1970 > db.timeIntervalSince1970
@@ -498,24 +498,24 @@ class DataManager: NSObject {
         let data = ctx.objectForKeyedSubscript("data")
         
         var articles : @objc_block (Void) -> [NSDictionary] = {
-            return (self.dataHelper.entities("Article", matchingPredicate: NSPredicate(value: true), managedObjectContext: moc)! as [Article]).map {return $0.asDict()}
+            return (self.dataHelper.entities("Article", matchingPredicate: NSPredicate(value: true), managedObjectContext: moc)! as! [Article]).map {return $0.asDict()}
         }
         data.setObject(unsafeBitCast(articles, AnyObject.self), forKeyedSubscript: "articles")
         
         var queryArticles : @objc_block (NSString, [NSObject]) -> [NSDictionary] = {(query, args) in
-            let predicate = NSPredicate(format: query, argumentArray: args)
-            return (self.dataHelper.entities("Article", matchingPredicate: predicate, managedObjectContext: moc)! as [Article]).map {$0.asDict()}
+            let predicate = NSPredicate(format: query as! String, argumentArray: args)
+            return (self.dataHelper.entities("Article", matchingPredicate: predicate, managedObjectContext: moc)! as! [Article]).map {$0.asDict()}
         }
         data.setObject(unsafeBitCast(queryArticles, AnyObject.self), forKeyedSubscript: "articlesMatchingQuery")
         
         var feeds : @objc_block (Void) -> [NSDictionary] = {
-            return (self.dataHelper.entities("Feed", matchingPredicate: NSPredicate(value: true), managedObjectContext: moc)! as [Feed]).map {return $0.asDict()}
+            return (self.dataHelper.entities("Feed", matchingPredicate: NSPredicate(value: true), managedObjectContext: moc)! as! [Feed]).map {return $0.asDict()}
         }
         data.setObject(unsafeBitCast(feeds, AnyObject.self), forKeyedSubscript: "feeds")
         
         var queryFeeds : @objc_block (NSString, [NSObject]) -> [NSDictionary] = {(query, args) in // queries for feeds, not to be confused with query feeds.
-            let predicate = NSPredicate(format: query, argumentArray: args)
-            return (self.dataHelper.entities("Feed", matchingPredicate: predicate, managedObjectContext: moc)! as [Feed]).map {$0.asDict()}
+            let predicate = NSPredicate(format: query as! String, argumentArray: args)
+            return (self.dataHelper.entities("Feed", matchingPredicate: predicate, managedObjectContext: moc)! as! [Feed]).map {$0.asDict()}
         }
         data.setObject(unsafeBitCast(queryFeeds, AnyObject.self), forKeyedSubscript: "feedsMatchingQuery")
         
@@ -551,10 +551,10 @@ class DataManager: NSObject {
     }
     
     func updateBackgroundThreads(feeds: [NSManagedObjectID]) {
-        let articles = dataHelper.entities("Article", matchingPredicate: NSPredicate(value: true), managedObjectContext: backgroundObjectContext) as [Article]
+        let articles = dataHelper.entities("Article", matchingPredicate: NSPredicate(value: true), managedObjectContext: backgroundObjectContext) as! [Article]
         var articleIDs : [NSManagedObjectID: [NSManagedObjectID]] = [:]
         for feed in feeds {
-            let theFeed = dataHelper.entities("Feed", matchingPredicate: NSPredicate(format: "self == %@", feed)!, managedObjectContext: backgroundObjectContext)!.last! as Feed
+            let theFeed = dataHelper.entities("Feed", matchingPredicate: NSPredicate(format: "self == %@", feed), managedObjectContext: backgroundObjectContext)!.last! as! Feed
             if let query = theFeed.query {
                 let res = articlesFromQuery(query, articles: articles, context: self.backgroundContext)
                 articleIDs[feed] = res.map { return $0.objectID }
@@ -563,8 +563,8 @@ class DataManager: NSObject {
         dispatch_async(dispatch_get_main_queue()) {
             var queryFeedResults : [Feed: [Article]] = [:]
             for (key, value) in articleIDs {
-                let theFeed = self.dataHelper.entities("Feed", matchingPredicate: NSPredicate(format: "self == %@", (key as NSManagedObjectID))!, managedObjectContext: self.managedObjectContext)!.last! as Feed
-                let articles = self.dataHelper.entities("Article", matchingPredicate: NSPredicate(format: "self IN %@", value)!, managedObjectContext: self.managedObjectContext) as [Article]
+                let theFeed = self.dataHelper.entities("Feed", matchingPredicate: NSPredicate(format: "self == %@", (key as NSManagedObjectID)), managedObjectContext: self.managedObjectContext)!.last! as! Feed
+                let articles = self.dataHelper.entities("Article", matchingPredicate: NSPredicate(format: "self IN %@", value), managedObjectContext: self.managedObjectContext) as! [Article]
                 queryFeedResults[theFeed] = articles
             }
             self.queryFeedResults = queryFeedResults
@@ -573,7 +573,9 @@ class DataManager: NSObject {
         }
     }
     
-    var persistentStoreCoordinator: NSPersistentStoreCoordinator! = nil
+    lazy var persistentStoreCoordinator: NSPersistentStoreCoordinator = {
+        self.dataHelper.persistentStoreCoordinator(self.dataHelper.managedObjectModel(), storeType: NSSQLiteStoreType)
+    }()
 
     lazy var managedObjectContext: NSManagedObjectContext = {
         self.dataHelper.managedObjectContext(self.persistentStoreCoordinator)
@@ -607,8 +609,6 @@ class DataManager: NSObject {
     
     init(dataHelper: CoreDataHelper) {
         self.dataHelper = dataHelper
-        
-        persistentStoreCoordinator = dataHelper.persistentStoreCoordinator(dataHelper.managedObjectModel())
         
         super.init()
         setupBackgroundContexts()

@@ -72,9 +72,10 @@ class LocalImportViewController: UIViewController, UITableViewDataSource, UITabl
     func reloadItems() {
         let documents : String = NSHomeDirectory().stringByAppendingPathComponent("Documents")
         var error : NSError? = nil
-        let contents = (NSFileManager.defaultManager().contentsOfDirectoryAtPath(documents, error: &error) as [String])
-        for path in contents {
-            verifyIfFeedOrOPML(path)
+        if let contents = NSFileManager.defaultManager().contentsOfDirectoryAtPath(documents, error: &error) as? [String] {
+            for path in contents {
+                verifyIfFeedOrOPML(path)
+            }
         }
         
         self.tableViewController.refreshControl?.endRefreshing()
@@ -93,7 +94,7 @@ class LocalImportViewController: UIViewController, UITableViewDataSource, UITabl
         contentsOfDirectory.append(path)
         
         let location = NSHomeDirectory().stringByAppendingPathComponent("Documents").stringByAppendingPathComponent(path)
-        if let text = NSString(contentsOfFile: location, encoding: NSUTF8StringEncoding, error: nil) {
+        if let text = String(contentsOfFile: location, encoding: NSUTF8StringEncoding, error: nil) {
             let opmlParser = OPMLParser(text: text)
             let feedParser = FeedParser(string: text)
             feedParser.parseInfoOnly = true
@@ -125,7 +126,7 @@ class LocalImportViewController: UIViewController, UITableViewDataSource, UITabl
     }
 
     func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCellWithIdentifier("cell", forIndexPath: indexPath) as UITableViewCell
+        let cell = tableView.dequeueReusableCellWithIdentifier("cell", forIndexPath: indexPath) as! UITableViewCell
         
         cell.textLabel?.text = items[indexPath.row]
 
@@ -138,7 +139,7 @@ class LocalImportViewController: UIViewController, UITableViewDataSource, UITabl
         let location = NSHomeDirectory().stringByAppendingPathComponent("Documents").stringByAppendingPathComponent(item)
         if contains(feeds, item) {
             let location = NSHomeDirectory().stringByAppendingPathComponent("Documents").stringByAppendingPathComponent(item)
-            let text = NSString(contentsOfFile: location, encoding: NSUTF8StringEncoding, error: nil)!
+            let text = String(contentsOfFile: location, encoding: NSUTF8StringEncoding, error: nil)!
             let feedParser = FeedParser(string: text)
             feedParser.parseInfoOnly = true
             

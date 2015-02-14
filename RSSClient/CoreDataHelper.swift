@@ -32,7 +32,7 @@ class CoreDataHelper {
             predicateString += "\(key) == %@"
             predicateArgs.append(properties[key]!)
         }
-        let predicate = NSPredicate(format: predicateString, predicateArgs)!
+        let predicate = NSPredicate(format: predicateString, predicateArgs)
         
         if let r = entities(entity, matchingPredicate: predicate, managedObjectContext: managedObjectContext)?.first as? NSManagedObject {
             return r
@@ -42,7 +42,7 @@ class CoreDataHelper {
         request.entity = NSEntityDescription.entityForName(entity, inManagedObjectContext: managedObjectContext)
         request.predicate = predicate
         
-        let ret = NSEntityDescription.insertNewObjectForEntityForName(entity, inManagedObjectContext: managedObjectContext) as NSManagedObject
+        let ret = NSEntityDescription.insertNewObjectForEntityForName(entity, inManagedObjectContext: managedObjectContext) as! NSManagedObject
         let addProperties = createProperties + properties
         for key in Array(addProperties.keys) {
             ret.setValue(addProperties[key], forKey: key)
@@ -76,20 +76,24 @@ class CoreDataHelper {
         return model
     }
     
-    func persistentStoreCoordinator(managedObjectModel: NSManagedObjectModel) -> NSPersistentStoreCoordinator {let applicationDocumentsDirectory: String = (NSSearchPathForDirectoriesInDomains(.DocumentDirectory, .UserDomainMask, true).last as String)
+    func persistentStoreCoordinator(managedObjectModel: NSManagedObjectModel, storeType: String) -> NSPersistentStoreCoordinator {
+        let applicationDocumentsDirectory: String = (NSSearchPathForDirectoriesInDomains(.DocumentDirectory, .UserDomainMask, true).last as! String)
         let persistentStoreCoordinator = NSPersistentStoreCoordinator(managedObjectModel: managedObjectModel)
-
-        let storeURL = NSURL.fileURLWithPath(applicationDocumentsDirectory.stringByAppendingPathComponent("RSSClient.sqlite"))
-        var error: NSError? = nil
-        var options : [String: AnyObject] = [NSMigratePersistentStoresAutomaticallyOption: true, NSInferMappingModelAutomaticallyOption: true]
-        persistentStoreCoordinator.addPersistentStoreWithType(NSInMemoryStoreType, configuration: managedObjectModel.configurations.last as NSString?, URL: storeURL, options: options, error: &error)
-        if (error != nil) {
-            NSFileManager.defaultManager().removeItemAtURL(storeURL!, error: nil)
-            error = nil
-            persistentStoreCoordinator.addPersistentStoreWithType(NSSQLiteStoreType, configuration: managedObjectModel.configurations.last as NSString?, URL: storeURL, options: options, error: &error)
+        if storeType == NSInMemoryStoreType {
+            persistentStoreCoordinator.addPersistentStoreWithType(storeType, configuration: nil, URL: nil, options: nil, error: nil)
+        } else {
+            let storeURL = NSURL.fileURLWithPath(applicationDocumentsDirectory.stringByAppendingPathComponent("RSSClient.sqlite"))
+            var error: NSError? = nil
+            var options : [String: AnyObject] = [NSMigratePersistentStoresAutomaticallyOption: true, NSInferMappingModelAutomaticallyOption: true]
+            persistentStoreCoordinator.addPersistentStoreWithType(storeType, configuration: managedObjectModel.configurations.last as? String, URL: storeURL, options: options, error: &error)
             if (error != nil) {
-                println("Fatal error adding persistent data store: \(error!)")
-                fatalError("bye.")
+                NSFileManager.defaultManager().removeItemAtURL(storeURL!, error: nil)
+                error = nil
+                persistentStoreCoordinator.addPersistentStoreWithType(NSSQLiteStoreType, configuration: managedObjectModel.configurations.last as? String, URL: storeURL, options: options, error: &error)
+                if (error != nil) {
+                    println("Fatal error adding persistent data store: \(error!)")
+                    fatalError("")
+                }
             }
         }
 

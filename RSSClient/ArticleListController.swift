@@ -92,22 +92,23 @@ class ArticleListController: UITableViewController {
     }
     
     func showArticle(article: Article, animated: Bool) -> ArticleViewController {
-        let avc = self.splitViewController?.viewControllers.last as? ArticleViewController ?? ArticleViewController()
-        avc.dataManager = dataManager
-        avc.article = article
-        avc.articles = self.articles
+        let possibleArticleController : ArticleViewController? = self.splitViewController?.viewControllers.last as? ArticleViewController
+        let articleController = possibleArticleController ?? ArticleViewController()
+        articleController.dataManager = dataManager
+        articleController.article = article
+        articleController.articles = self.articles
         if (self.articles.count != 0) {
-            avc.lastArticleIndex = (self.articles as NSArray).indexOfObject(article)
+            articleController.lastArticleIndex = (self.articles as NSArray).indexOfObject(article)
         } else {
-            avc.lastArticleIndex = 0
+            articleController.lastArticleIndex = 0
         }
         if let splitView = self.splitViewController {
-            (UIApplication.sharedApplication().delegate as AppDelegate).splitDelegate.collapseDetailViewController = false
-            splitView.showDetailViewController(UINavigationController(rootViewController: avc), sender: self)
+            (UIApplication.sharedApplication().delegate as? AppDelegate)?.splitDelegate.collapseDetailViewController = false
+            splitView.showDetailViewController(UINavigationController(rootViewController: articleController), sender: self)
         } else {
-            self.navigationController?.pushViewController(avc, animated: animated)
+            self.navigationController?.pushViewController(articleController, animated: animated)
         }
-        return avc
+        return articleController
     }
 
     // MARK: - Table view data source
@@ -132,7 +133,7 @@ class ArticleListController: UITableViewController {
     override func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {
         let article = articleForIndexPath(indexPath)
         let strToUse = (article.read ? "read" : "unread") // Prevents a green triangle which'll (dis)appear depending on whether article loaded into it is read or not.
-        let cell = tableView.dequeueReusableCellWithIdentifier(strToUse, forIndexPath: indexPath) as ArticleCell
+        let cell = tableView.dequeueReusableCellWithIdentifier(strToUse, forIndexPath: indexPath) as! ArticleCell
         
         cell.article = article
 

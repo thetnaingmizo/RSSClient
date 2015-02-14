@@ -11,7 +11,7 @@ import Foundation
 extension Feed {
     func feedImage() -> Image? {
         if self.image == nil { return nil }
-        return (self.image as Image)
+        return self.image as? Image
     }
     
     func unreadArticles() -> UInt {
@@ -27,14 +27,15 @@ extension Feed {
     }
     
     func allArticles() -> [Article] {
-        return self.articles.allObjects as [Article]
+        let possibleArticles = Array(self.articles ?? Set()) as? [Article]
+        return possibleArticles ?? []
     }
     
     func allArticles(dataManager: DataManager) -> [Article] {
         if let query = self.query {
             return dataManager.articlesMatchingQuery(query, feed: self)
         } else {
-            return self.articles.allObjects as [Article]
+            return allArticles()
         }
     }
     
@@ -61,13 +62,14 @@ extension Feed {
     }
     
     func allTags() -> [String] {
-        return self.tags == nil ? [] : self.tags as [String]
+        let possibleTags = self.tags as? [String]
+        return possibleTags ?? []
     }
     
     func asDict() -> [String: AnyObject] {
         var ret = asDictNoArticles()
         var theArticles : [[String: AnyObject]] = []
-        for article in articles.allObjects as [Article] {
+        for article in allArticles() {
             theArticles.append(article.asDictNoFeed())
         }
         ret["articles"] = theArticles
@@ -99,17 +101,19 @@ extension Feed {
 
 extension Article {
     func allFlags() -> [String] {
-        return self.flags == nil ? [] : self.flags as [String]
+        let possibleFlags = self.flags as? [String]
+        return possibleFlags ?? []
     }
     
     func allEnclosures() -> [Enclosure] {
-        return self.enclosures == nil ? [] : self.enclosures.allObjects as [Enclosure]
+        let possibleEnclosures = Array(self.enclosures ?? Set()) as? [Enclosure]
+        return possibleEnclosures ?? []
     }
     
     func asDict() -> [String: AnyObject] {
         var ret = asDictNoFeed()
-        if feed != nil {
-            ret["feed"] = feed.asDictNoArticles()
+        if let f = feed {
+            ret["feed"] = f.asDictNoArticles()
         }
         return ret
     }
